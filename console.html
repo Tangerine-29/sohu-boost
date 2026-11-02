@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>流量控制台</title>
+<!--
+  独立页面：可以双击打开，也可以由 web_boost.py 提供。
+  数据来自本机后端 http://127.0.0.1:8787/api/*（后端需在运行）。
+  只保留两个输入：帖子链接、流量次数；并发与落账等待由后端固定。
+-->
+<style>
+  :root{--bg:#0d1117;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--ok:#3fb950;--err:#f85149;--acc:#1f6feb}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
+       display:flex;justify-content:center;padding:56px 16px;min-height:100vh}
+  .wrap{width:100%;max-width:520px}
+  h1{font-size:22px;margin:0 0 24px;font-weight:600;letter-spacing:.2px}
+  label{display:block;font-size:12px;color:var(--dim);margin:0 0 8px}
+  input{width:100%;background:#0d1117;border:1px solid var(--line);border-radius:10px;color:var(--fg);
+        padding:13px 14px;font-size:15px;font-family:inherit;margin-bottom:18px}
+  input:focus{outline:none;border-color:var(--acc)}
+  button{width:100%;background:var(--acc);border:0;border-radius:10px;color:#fff;padding:13px;
+         font-size:16px;font-weight:600;cursor:pointer;margin-top:4px;font-family:inherit}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  #bar{height:4px;background:#21262d;border-radius:2px;overflow:hidden;margin-top:16px}
+  #bar>i{display:block;height:100%;width:0;background:var(--acc);transition:width .25s}
+  #status{margin-top:18px;font-size:14px;color:var(--dim);min-height:22px;font-variant-numeric:tabular-nums}
+  #status.ok{color:var(--ok)}
+  #status.err{color:var(--err)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>流量控制台</h1>
+
+  <label for="link">帖子链接</label>
+  <input id="link" placeholder="粘贴帖子分享链接，或直接填 19 位 ID">
+
+  <label for="count">流量次数</label>
+  <input id="count" type="number" value="250" min="1" max="20000">
+
+  <button id="go">开始</button>
+
+  <div id="bar"><i></i></div>
+  <div id="status">就绪</div>
+</div>
+
+<script>
+(function () {
+  var API = 'http://127.0.0.1:8787';
+  var $ = function (id) { return document.getElementById(id); };
+  var timer = null;
+
+  function say(text, cls) {
+    var el = $('status');
+    el.textContent = text;
+    el.className = cls || '';
+  }
+
+  function setProgress(p) {
+    $('bar').firstElementChild.style.width = Math.max(0, Math.min(100, p)) + '%';
+  }
+
+  $('go').onclick = function () {
+    var link = $('link').value.trim();
+    var count = parseInt($('count').value, 10);
+    if (!link) { say('请先粘贴帖子链接', 'err'); return; }
+    if (!count || count < 1) { say('请填写流量次数', 'err'); return; }
+
+    $('go').disabled = true;
+    setProgress(0);
+    say('提交中…');
+
+    fetch(API + '/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ link: link, count: count })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok) { say(j.error || '启动失败', 'err'); $('go').disabled = false; return; }
+      clearInterval(timer);
+      timer = setInterval(function () { poll(j.id); }, 600);
+    }).catch(function (e) {
+      say('连不上本机后端（先运行 python3 web_boost.py）', 'err');
+      $('go').disabled = false;
+    });
+  };
+
+  function poll(id) {
+    fetch(API + '/api/status?id=' + id).then(function (r) { return r.json(); }).then(function (s) {
+      setProgress(100 * s.sent / Math.max(s.total, 1));
+      if (s.phase === 'queued') say('排队中…');
+      else if (s.phase === 'reading') say('读取当前曝光…');
+      else if (s.phase === 'sending') say('发送中 ' + s.sent + ' / ' + s.total);
+      else if (s.phase === 'flushing') say('等待服务端落账…');
+      if (s.phase === 'done') {
+        clearInterval(timer);
+        $('go').disabled = false;
+        var d = s.result || {};
+        say('完成：曝光 ' + d.before + ' → ' + d.after + '（+' + (d.delta || 0) + '）', 'ok');
+      } else if (s.phase === 'error') {
+        clearInterval(timer);
+        $('go').disabled = false;
+        say(s.message || '任务失败', 'err');
+      }
+    }).catch(function () { /* 轮询失败忽略，下次继续 */ });
+  }
+})();
+</script>
+</body>
+</html>

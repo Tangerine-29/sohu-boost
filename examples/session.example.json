@@ -1,0 +1,25 @@
+{
+  "_comment": "从你自己的抓包导出，字段说明见 docs/SESSION.md",
+  "event": "dump",
+  "at": 0,
+  "url": "https://cs-ol.sns.sohu.com/330000/v7/feeds/show",
+  "method": "POST",
+  "body": "app_key_vs=6.24.1&appid=330000&extras=1&feed_id=<FEED_ID>&flyer=<MS>&key_jegb=<KEY_JEGB>&log_user_id=<USER_ID>&sig=<SIG>",
+  "headers": {
+    "S-CID": "<设备ID，21位>",
+    "S-PID": "<用户数字ID>",
+    "S-PPID": "<passport，形如 xxx@sohu.com>",
+    "S-VS": "6.24.1",
+    "S-DV": "iPhone15,2",
+    "S-OS": "iOS 16.0.3",
+    "S-TO": "<运营商>",
+    "P-APPID": "110501",
+    "appid": "330000",
+    "gid": "<设备gid>",
+    "s-nonce": "<base64url 随机串>",
+    "token": "<登录 token>",
+    "User-Agent": "sohuhy/6.24.1 (com.sohu.sohuhy; build:170; iOS 16.0.3) Alamofire/5.9.0",
+    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8"
+  },
+  "cookie": null
+}

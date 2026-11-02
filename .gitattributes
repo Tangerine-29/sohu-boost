@@ -1,0 +1,12 @@
+# 统一换行符，避免 Windows 用户 clone 后脚本跑不了
+* text=auto eol=lf
+
+# Shell 脚本必须是 LF
+*.sh text eol=lf
+
+# 二进制/大文件
+*.json linguist-language=JSON
+schema.json linguist-documentation=true
+
+# 避免 diff 噪音
+*.py text diff=python

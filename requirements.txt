@@ -1,0 +1,4 @@
+# 本项目零第三方依赖，仅需 Python 3.8+
+# 列出标准库依赖供参考：
+#   http.client, urllib.parse, json, re, time, threading,
+#   concurrent.futures, pathlib, argparse, http.server, hashlib, base64, struct
