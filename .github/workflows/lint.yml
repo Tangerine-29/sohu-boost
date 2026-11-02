@@ -1,0 +1,62 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.10', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 语法检查
+        run: |
+          python -m py_compile *.py
+          echo "✅ 全部文件语法通过"
+
+      - name: 模块导入检查
+        run: |
+          python -c "import sign, payload, watcher_config, token_stats"
+          echo "✅ 核心模块可导入"
+
+      - name: 敏感信息扫描
+        run: |
+          if grep -rnE 'sk-[a-zA-Z0-9]{20,}|eyJleHAiOjE[0-9]{8}' \
+              --include='*.py' --include='*.json' --include='*.md' . \
+              | grep -v 'examples/' | grep -v 'docs/SESSION.md' ; then
+            echo "❌ 发现疑似真实凭证，请移除"
+            exit 1
+          fi
+          echo "✅ 无敏感信息"
+        continue-on-error: false
+
+      - name: 确认无凭证文件
+        run: |
+          for f in session_sample.json session_boost.json watcher_config.json watcher_state.json token_stats.json; do
+            if [ -f "$f" ]; then
+              echo "❌ 不应提交 $f"
+              exit 1
+            fi
+          done
+          echo "✅ 无凭证文件"
+
+      - name: 单元测试
+        run: |
+          python tests/run_all.py
+
+      - name: Shell 脚本检查
+        run: |
+          bash -n install.sh && echo "✅ install.sh"
+          bash -n check.sh && echo "✅ check.sh"
