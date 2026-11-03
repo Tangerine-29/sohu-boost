@@ -111,7 +111,12 @@ def render_for_prompt(cfg=None):
         return ''
 
     max_chars = int(cfg.get('kb_max_chars') or DEFAULT_MAX_CHARS)
-    head = '以下是本校的真实信息，回答涉及这些内容时必须以此为准，不要编造：'
+    head = (
+        '【本校真实信息 · 必须遵守】\n'
+        '下面每一条都是学校真实情况。对方问到的内容，只用这里的答案回答，'
+        '不许自己编、不许说"不清楚"、不许说"没留意"。'
+        '问的跟下面无关才按常识聊。\n'
+    )
     budget = max_chars - len(head)
 
     picked, total = [], 0

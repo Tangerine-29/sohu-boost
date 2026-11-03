@@ -10,6 +10,13 @@ set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 
+# ---------- 保护用户数据 ----------
+# 只在不存在时从示例初始化，绝不覆盖已有内容
+if [ ! -f knowledge.txt ] && [ -f knowledge.example.txt ]; then
+  cp knowledge.example.txt knowledge.txt
+  echo "[INIT] 已从示例初始化 knowledge.txt"
+fi
+
 CIRCLE="${CIRCLE:-<CIRCLE_ID>}"
 DAYS="${DAYS:-7}"
 INTERVAL="${INTERVAL:-180}"
@@ -143,6 +150,16 @@ if pgrep -f "profile_updater.py" > /dev/null; then
   info "简介更新器已启动（每 3 小时刷新 Token 消耗）"
 else
   warn "简介更新器未启动，查看 $DIR/profile.log"
+fi
+
+# ---------- 启动私聊监听 ----------
+pkill -f "dm_watcher.py" 2>/dev/null || true
+nohup "$PY" dm_watcher.py --interval 60 >> "$DIR/dm.log" 2>&1 &
+sleep 2
+if pgrep -f "dm_watcher.py" > /dev/null; then
+  info "私聊监听已启动（60 秒一轮）"
+else
+  warn "私聊监听未启动，查看 $DIR/dm.log"
 fi
 
 # ---------- crontab 守护 ----------

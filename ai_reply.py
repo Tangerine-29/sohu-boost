@@ -106,6 +106,8 @@ def smart_truncate(text, limit):
 META_HINTS = (
     '用户要', '用户说', '要针对', '这条回复', '结合帖子', '人设是',
     '字内', '回复先生成', '我需要', '我们应该', '让我', '首先',
+    '没给人设', '按普通', '回一句', '我回', '应该说', '根据要求',
+    '按人设', '这条消息', '对方问', '我需要回',
 )
 
 
@@ -175,6 +177,8 @@ def smart_truncate(text, limit):
 META_HINTS = (
     '用户要', '用户说', '要针对', '这条回复', '结合帖子', '人设是',
     '字内', '回复先生成', '我需要', '我们应该', '让我', '首先',
+    '没给人设', '按普通', '回一句', '我回', '应该说', '根据要求',
+    '按人设', '这条消息', '对方问', '我需要回',
 )
 
 
@@ -213,7 +217,8 @@ def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2,
     # 注入知识库（全量，受 kb_max_chars 限制）
     kb = build_knowledge(cfg)
     if kb:
-        system = system + '\n\n' + kb
+        # 知识库放最前面：模型对开头指令的遵循度更高
+        system = kb + '\n\n' + system
     msgs = build_messages(comment_text, feed_content, author, extra, images=images)
     has_img = isinstance(msgs[1].get('content'), list)
     msgs[0]['content'] = system
