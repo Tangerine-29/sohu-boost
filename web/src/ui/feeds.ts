@@ -1,6 +1,6 @@
 import { api } from '../api'
 import type { RawFeed, WindowResp } from '../types'
-import { el, fmtNum, fmtTime, q } from './dom'
+import { el, fmtNum, fmtTime, nowBJ, q } from './dom'
 
 export function createFeedPanel(onLoadState: (loading: boolean) => void) {
   const tbody = el('div', { class: 'feed-list' })
@@ -54,10 +54,10 @@ export function createFeedPanel(onLoadState: (loading: boolean) => void) {
     q('#s-exposure').textContent = fmtNum(pushed)
     q('#s-comments').textContent = String(comments)
 
-    const now = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    const now = nowBJ()
     q('#hero-sub').innerHTML =
       `圈子 <b>${resp.circle}</b> · 最近 <b>${resp.days}</b> 天 · ` +
-      `更新 <b>${now}</b> · 帖子总曝光 <b>${fmtNum(exposure)}</b>`
+      `更新 <b>${now}</b>（北京时间） · 帖子总曝光 <b>${fmtNum(exposure)}</b>`
   }
 
   async function load(circle: string, days: number) {

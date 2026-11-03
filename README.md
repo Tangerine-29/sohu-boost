@@ -40,6 +40,7 @@
 | **发 / 删评论** | 顶层评论、楼中楼回复、删除 | `v8/comment/text`、`v6/feeds/comment/remove` |
 | **转发** | 转发帖子 | `v6/feeds/repost` |
 | **改简介** | 修改个人签名 | `v5/users/update` |
+| **私聊** | 拉会话、读消息、发消息、AI 自动回复 | `dm/api/v2/message`、`dm/api/v3/message` |
 | **自动监听** | 监控圈子，命中暗号自动刷量 + AI 回复 | 组合上述 |
 | **知识库** | 一行一句话，全量注入 AI prompt，避免它乱编学校信息 | — |
 | **监控面板** | Three.js 三维背景 + 玻璃拟态 UI（Vite + TypeScript）| `http.server` |
@@ -373,6 +374,8 @@ token 失效了。App 每次活跃都会刷新 token，旧 token 立即作废。
 - **封号后读接口全部失效**，但埋点上报仍可能计数（实测过）
 - **封号可能是设备级的**：同设备换账号注册也会被封
 - **AI 网关**：不同厂商对 `max_tokens` 与 reasoning 字段处理差异较大
+- **私聊消息是一次性消费的**：HTTP 拉到后服务端就删，App 在线时会走 MQTT 抢走
+- **时间统一用 UTC+8**：服务器多为 UTC，代码里走 `tz.py` 固定北京时间
 
 ---
 

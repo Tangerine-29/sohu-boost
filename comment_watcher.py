@@ -17,6 +17,7 @@
     watcher_state.json   {"<commentId>": {"feedId":..., "n":300, "sent":150, "at":...}}
 """
 
+import tz
 import argparse
 import json
 import re
@@ -68,7 +69,7 @@ def in_window(create_time, days=DEFAULT_WINDOW_DAYS, now=None):
 
 
 def now_str():
-    return datetime.now().strftime('%H:%M:%S')
+    return tz.now_str()
 
 
 class Watcher:
@@ -198,7 +199,7 @@ class Watcher:
 
     def _daily_used(self, feed_id):
         """当天该帖已刷的曝光数（从 state 统计）。"""
-        today = time.strftime('%Y-%m-%d')
+        today = tz.today()
         total = 0
         for k, rec in self.state.items():
             if str(k).startswith('__') or not isinstance(rec, dict):
@@ -486,7 +487,7 @@ class Watcher:
         if not in_window(create_time, self.window_days):
             self.skipped_old += 1
             if self.verbose:
-                print(f'[{now_str()}] 跳过过期帖子 {feed_id}（发布 {time.strftime("%Y-%m-%d %H:%M", time.localtime(ts_seconds(create_time) or 0))}，'
+                print(f'[{now_str()}] 跳过过期帖子 {feed_id}（发布 {tz.from_ms((ts_seconds(create_time) or 0) * 1000, "%Y-%m-%d %H:%M")}，'
                       f'超过 {self.window_days} 天）', flush=True)
             return 0
         # 帖子内容触发：提到「大肥鱼」等关键词时发一条顶层评论（每帖限一条）

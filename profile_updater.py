@@ -7,6 +7,7 @@
     python3 profile_updater.py --interval 300
 """
 
+import tz
 import argparse
 import sys
 import time
@@ -21,7 +22,7 @@ from feed_reader import FeedReader       # noqa: E402
 
 
 def now_str():
-    return time.strftime('%H:%M:%S')
+    return tz.now_str()
 
 
 def update_profile(reader=None):

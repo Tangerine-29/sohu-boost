@@ -5,6 +5,7 @@
 累计 < 100 万 → 显示 0.x 碗
 """
 
+import tz
 import json
 import threading
 import time
@@ -50,7 +51,7 @@ def record_usage(usage, model=None):
         if model:
             bm = d.setdefault('by_model', {})
             bm[model] = int(bm.get(model) or 0) + int(total)
-        now = time.strftime('%Y-%m-%d %H:%M:%S')
+        now = tz.now().strftime('%Y-%m-%d %H:%M:%S')
         if not d.get('first_at'):
             d['first_at'] = now
         d['updated_at'] = now

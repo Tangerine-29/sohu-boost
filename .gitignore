@@ -36,3 +36,7 @@ node_modules/
 web_dist/
 web/node_modules/
 knowledge.txt
+
+# 运行时状态
+dm_state.json
+tz_state.json

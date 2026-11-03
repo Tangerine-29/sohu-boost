@@ -44,7 +44,12 @@ DEFAULTS = {
     'feed_mention_reply': False,  # 旧开关：只对提到关键词的帖子回复（reply_all_feeds 关闭时才生效）
     'feed_reply_hourly_cap': 10,  # 每小时最多发多少条顶层评论（0 = 不限）
     'feed_reply_only_after_start': True,  # 只评论「服务器启动之后发布」的帖子，不往回翻
-    'kb_enabled': True,          # 是否把本地知识库注入 AI prompt
+    'dm_enabled': True,          # 私聊自动回复总开关
+    'dm_pull_limit': 100,        # 每次拉取的消息条数
+    'dm_daily_cap': 50,          # 每天最多自动回复多少条私聊（0 = 不限）
+    'dm_reply_template': '在的，稍等',   # AI 失败时的兜底文案
+    'dm_skip_keywords': '',      # 命中这些词就不回（逗号分隔）
+    'kb_enabled': True,          # 是否把本地知识库注入 AI  prompt
     'kb_top_k': 6,               # 最多注入几条
     'kb_max_chars': 1200,        # 注入内容的字符上限
     'mention_keywords': '大肥鱼,肥鱼,建院大肥鱼',  # 触发词，逗号分隔

@@ -23,11 +23,39 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 export const q = <T extends HTMLElement = HTMLElement>(sel: string): T =>
   document.querySelector(sel) as T
 
+/** 北京时间的各字段（固定 UTC+8，不跟随浏览器时区） */
+function bjParts(ms: number) {
+  // 先按 UTC 取出，再手动加 8 小时，避免依赖浏览器 locale
+  const t = new Date(ms + 8 * 3600 * 1000)
+  return {
+    y: t.getUTCFullYear(),
+    mo: t.getUTCMonth() + 1,
+    d: t.getUTCDate(),
+    h: t.getUTCHours(),
+    mi: t.getUTCMinutes(),
+    s: t.getUTCSeconds(),
+  }
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** 毫秒 → MM-DD HH:mm（北京时间） */
 export function fmtTime(ms: number): string {
   if (!ms) return '—'
-  const d = new Date(ms)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+  const t = bjParts(ms)
+  return `${pad(t.mo)}-${pad(t.d)} ${pad(t.h)}:${pad(t.mi)}`
+}
+
+/** 当前北京时间 HH:mm:ss */
+export function nowBJ(): string {
+  const t = bjParts(Date.now())
+  return `${pad(t.h)}:${pad(t.mi)}:${pad(t.s)}`
+}
+
+/** 当前北京时间 完整格式 */
+export function nowBJFull(): string {
+  const t = bjParts(Date.now())
+  return `${t.y}-${pad(t.mo)}-${pad(t.d)} ${pad(t.h)}:${pad(t.mi)}:${pad(t.s)}`
 }
 
 export function fmtNum(n: number | undefined): string {
