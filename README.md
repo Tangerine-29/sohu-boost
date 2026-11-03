@@ -41,7 +41,8 @@
 | **转发** | 转发帖子 | `v6/feeds/repost` |
 | **改简介** | 修改个人签名 | `v5/users/update` |
 | **自动监听** | 监控圈子，命中暗号自动刷量 + AI 回复 | 组合上述 |
-| **监控面板** | Web 界面查看帖子列表与触发记录 | `http.server` |
+| **知识库** | 一行一句话，全量注入 AI prompt，避免它乱编学校信息 | — |
+| **监控面板** | Three.js 三维背景 + 玻璃拟态 UI（Vite + TypeScript）| `http.server` |
 
 ---
 
@@ -221,7 +222,9 @@ python3 web_watcher.py --port 8790
 | `token_stats.py` | Token 消耗统计 |
 | `profile_updater.py` | 定时把统计写进个人简介 |
 | `watcher_config.py` | 配置读写 |
-| `web_watcher.py` | 监控面板 |
+| `knowledge.py` | 知识库（`knowledge.txt`，一行一句）|
+| `web_watcher.py` | 监控面板（优先用 `web_dist/`，无则降级内置 HTML）|
+| `web/` | 前端源码（Three.js + TypeScript + Vite）|
 | `web_reader.py` | 帖子/圈子阅读器 |
 | `web_boost.py` + `console.html` | 流量控制台 |
 | `install.sh` | 一键部署（含守护） |
@@ -253,6 +256,8 @@ CI（GitHub Actions）会在 Python 3.8 / 3.10 / 3.12 上跑一遍。
 | **[`DEPLOY.md`](DEPLOY.md)** | **部署到服务器（宝塔/裸机）+ 运维 + 卸载** |
 | **[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)** | **排错手册（按症状查）** |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 模块依赖、数据流、状态文件格式 |
+| [`KNOWLEDGE.md`](KNOWLEDGE.md) | 知识库用法（给 AI 补充学校信息）|
+| [`WEB.md`](WEB.md) | 前端开发（Three.js + TS + Vite）|
 | [`docs/SESSION.md`](docs/SESSION.md) | 身份样本字段说明与抓取方法 |
 | [`docs/API.md`](docs/API.md) | 接口清单（路径/参数/返回） |
 | [`docs/PROTOBUF.md`](docs/PROTOBUF.md) | 埋点协议与 schema 结构 |

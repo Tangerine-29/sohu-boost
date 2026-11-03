@@ -12,6 +12,7 @@
 import json
 import time
 
+import knowledge
 import token_stats
 import urllib.error
 import urllib.request
@@ -154,6 +155,14 @@ def looks_like_reasoning(text):
 
 
 
+def build_knowledge(cfg=None):
+    """把所有知识行拼成 prompt 片段（不做检索，全量注入）。"""
+    try:
+        return knowledge.render_for_prompt(cfg or {})
+    except Exception:  # noqa: BLE001
+        return ''
+
+
 def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2, images=None):
     """按配置生成一条回复。返回 (ok, text_or_error)。
 
@@ -166,6 +175,10 @@ def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2,
     if not base or not model:
         return False, '未配置 ai_base_url / ai_model'
     system = (cfg.get('ai_system_prompt') or '').strip() or DEFAULT_SYSTEM
+    # 注入知识库（全量，受 kb_max_chars 限制）
+    kb = build_knowledge(cfg)
+    if kb:
+        system = system + '\n\n' + kb
     msgs = build_messages(comment_text, feed_content, author, extra, images=images)
     has_img = isinstance(msgs[1].get('content'), list)
     msgs[0]['content'] = system

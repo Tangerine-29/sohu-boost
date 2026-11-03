@@ -16,11 +16,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).resolve().parent
+WEB_DIST = HERE / 'web_dist'          # Vite 构建产物（存在则优先使用）
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'sig_reverse'))
 from feed_reader import FeedReader, ts_seconds      # noqa: E402
 import watcher_config                                # noqa: E402
 import ai_reply                                      # noqa: E402
+import knowledge                                     # noqa: E402
 
 READER = None
 STATE_PATH = HERE / 'watcher_state.json'
@@ -132,6 +134,23 @@ td.c{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       <label>结果</label>
       <div id="ai_out" style="flex:1;font-size:13px;color:var(--fg);min-height:20px"></div>
     </div>
+  </details>
+  <details style="margin-top:10px">
+    <summary style="cursor:pointer;font-size:12px;color:var(--dim)">知识库（让 AI 知道学校的真实情况）</summary>
+    <div class="cfgrow" style="margin-top:10px">
+      <input id="kb_title" placeholder="标题，如「食堂分布」" style="width:180px">
+      <input id="kb_tags" placeholder="关键词（逗号分隔）如 食堂,吃饭" style="width:220px">
+      <label style="display:flex;align-items:center;gap:6px"><input id="kb_en" type="checkbox" checked style="width:auto">启用</label>
+    </div>
+    <div class="cfgrow" style="margin-top:8px;align-items:flex-start">
+      <textarea id="kb_content" rows="3" placeholder="具体内容，如「一食堂在教学楼东侧，早餐 6:30-9:00」" style="flex:1;min-width:300px;background:#0d1117;border:1px solid var(--line);border-radius:8px;color:var(--fg);padding:10px;font-size:13px;font-family:inherit;line-height:1.6"></textarea>
+    </div>
+    <div class="cfgrow" style="margin-top:8px">
+      <button id="kb_add">添加条目</button>
+      <button id="kb_reload">刷新</button>
+      <span id="kb_msg" class="hint"></span>
+    </div>
+    <div id="kb_list" style="margin-top:12px"></div>
   </details>
 </div>
 <div class="stats">
@@ -280,6 +299,89 @@ $('cid').onchange=()=>localStorage.setItem('cid',$('cid').value);
 $('wd').onchange=()=>localStorage.setItem('wd',$('wd').value);
 load();
 setInterval(load, 180000);   // 3 分钟自动刷新，与监听器轮询间隔一致
+
+// ---------- 知识库 ----------
+function kbMsg(t, ok){
+  const el=$('kb_msg'); if(!el) return;
+  el.textContent=t; el.style.color = ok===false ? '#ff7b72' : '#7ee787';
+  clearTimeout(kbMsg._t); kbMsg._t=setTimeout(()=>{el.textContent='';},4000);
+}
+async function kbLoad(){
+  const box=$('kb_list'); if(!box) return;
+  box.innerHTML='<div class="hint">加载中…</div>';
+  try{
+    const r=await fetch('/api/kb'); const j=await r.json();
+    if(!j.ok){ box.innerHTML='<div class="hint" style="color:#ff7b72">'+esc(j.error||'失败')+'</div>'; return; }
+    const list=j.entries||[];
+    if(!list.length){ box.innerHTML='<div class="hint">还没有条目，上面添加一条试试</div>'; return; }
+    box.innerHTML = list.map(e=>`
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;${e.enabled?'':'opacity:.5'}">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <b style="font-size:13px">${esc(e.title)}</b>
+          ${e.tags?'<span class="hint" style="font-size:11px">'+esc(e.tags)+'</span>':''}
+          <span style="flex:1"></span>
+          <button class="mini" onclick="kbToggle('${e.id}',${!e.enabled})">${e.enabled?'停用':'启用'}</button>
+          <button class="mini" onclick="kbEdit('${e.id}')">编辑</button>
+          <button class="mini" onclick="kbDel('${e.id}')" style="color:#ff7b72">删除</button>
+        </div>
+        <div style="font-size:12px;color:var(--dim);line-height:1.7;white-space:pre-wrap">${esc(e.content)}</div>
+      </div>`).join('');
+  }catch(err){ box.innerHTML='<div class="hint" style="color:#ff7b72">'+esc(String(err))+'</div>'; }
+}
+async function kbAdd(){
+  const title=($('kb_title').value||'').trim();
+  const content=($('kb_content').value||'').trim();
+  const tags=($('kb_tags').value||'').trim();
+  const enabled=$('kb_en').checked;
+  if(!title||!content){ kbMsg('标题和内容都不能为空', false); return; }
+  try{
+    const r=await fetch('/api/kb',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title,content,tags,enabled})});
+    const j=await r.json();
+    if(!j.ok){ kbMsg(j.error||'添加失败', false); return; }
+    kbMsg('已添加：'+title, true);
+    $('kb_title').value=''; $('kb_content').value=''; $('kb_tags').value='';
+    kbLoad();
+  }catch(err){ kbMsg(String(err), false); }
+}
+async function kbToggle(id, enabled){
+  try{
+    const r=await fetch('/api/kb',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id,enabled})});
+    const j=await r.json();
+    if(j.ok){ kbMsg(enabled?'已启用':'已停用', true); kbLoad(); }
+    else kbMsg(j.error||'失败', false);
+  }catch(err){ kbMsg(String(err), false); }
+}
+async function kbEdit(id){
+  const r=await fetch('/api/kb'); const j=await r.json();
+  const e=(j.entries||[]).find(x=>x.id===id); if(!e) return;
+  const title=prompt('标题', e.title); if(title===null) return;
+  const tags=prompt('关键词（逗号分隔）', e.tags||''); if(tags===null) return;
+  const content=prompt('内容', e.content); if(content===null) return;
+  try{
+    const rr=await fetch('/api/kb',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id,title,tags,content})});
+    const jj=await rr.json();
+    if(jj.ok){ kbMsg('已保存', true); kbLoad(); }
+    else kbMsg(jj.error||'失败', false);
+  }catch(err){ kbMsg(String(err), false); }
+}
+async function kbDel(id){
+  if(!confirm('确定删除这条？')) return;
+  try{
+    const r=await fetch('/api/kb',{method:'DELETE',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id})});
+    const j=await r.json();
+    if(j.ok){ kbMsg('已删除', true); kbLoad(); }
+    else kbMsg(j.error||'失败', false);
+  }catch(err){ kbMsg(String(err), false); }
+}
+if($('kb_add')){
+  $('kb_add').onclick=kbAdd;
+  $('kb_reload').onclick=kbLoad;
+  kbLoad();
+}
 </script></body></html>"""
 
 
@@ -329,8 +431,71 @@ class Handler(BaseHTTPRequestHandler):
             # 浏览器刷新/切页/超时导致客户端提前断开，属正常现象
             pass
 
+    def _send_file(self, path, ctype=None):
+        """返回静态文件。"""
+        try:
+            data = path.read_bytes()
+        except OSError:
+            return self._send(404, 'not found', 'text/plain; charset=utf-8')
+        if ctype is None:
+            ext = path.suffix.lower()
+            ctype = {
+                '.js': 'text/javascript; charset=utf-8',
+                '.css': 'text/css; charset=utf-8',
+                '.html': 'text/html; charset=utf-8',
+                '.json': 'application/json; charset=utf-8',
+                '.svg': 'image/svg+xml',
+                '.png': 'image/png',
+                '.ico': 'image/x-icon',
+                '.woff2': 'font/woff2',
+            }.get(ext, 'application/octet-stream')
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', ctype)
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'public, max-age=3600' if path.suffix != '.html' else 'no-store')
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError, TimeoutError):
+            pass
+
+    def _read_json(self):
+        """读请求体并解析 JSON，失败返回空 dict。"""
+        try:
+            length = int(self.headers.get('Content-Length') or 0)
+            if length <= 0:
+                return {}
+            raw = self.rfile.read(length)
+            d = json.loads(raw or b'{}')
+            return d if isinstance(d, dict) else {}
+        except Exception:  # noqa: BLE001
+            return {}
+
     def do_POST(self):
         parsed = urlparse(self.path)
+
+        # ---- 知识库：新增 ----
+        if parsed.path == '/api/kb':
+            try:
+                body = self._read_json()
+                # 整体覆盖
+                if 'text' in body:
+                    n = knowledge.replace_all(body.get('text') or '')
+                    return self._send(200, json.dumps(
+                        {'ok': True, 'total': n}, ensure_ascii=False))
+                # 追加一行
+                line = str(body.get('line') or '').strip()
+                if not line:
+                    return self._send(400, json.dumps(
+                        {'ok': False, 'error': '内容不能为空'}, ensure_ascii=False))
+                added = knowledge.add_line(line)
+                return self._send(200, json.dumps(
+                    {'ok': True, 'added': added,
+                     'total': len(knowledge.load_lines())}, ensure_ascii=False))
+            except Exception as exc:  # noqa: BLE001
+                return self._send(500, json.dumps({'ok': False, 'error': str(exc)[:200]},
+                                                  ensure_ascii=False))
+
         if parsed.path != '/api/config':
             return self._send(404, 'not found', 'text/plain')
         try:
@@ -352,8 +517,59 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', '0')
         self.end_headers()
 
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+        if parsed.path == '/api/kb':
+            try:
+                body = self._read_json()
+                eid = str(body.get('id') or '').strip()
+                if not eid:
+                    return self._send(400, json.dumps({'ok': False, 'error': '缺少 id'},
+                                                      ensure_ascii=False))
+                e = knowledge.update(eid, content=body.get('content') or '')
+                if e is None:
+                    return self._send(404, json.dumps({'ok': False, 'error': '条目不存在'},
+                                                      ensure_ascii=False))
+                return self._send(200, json.dumps({'ok': True, 'entry': e}, ensure_ascii=False))
+            except Exception as exc:  # noqa: BLE001
+                return self._send(500, json.dumps({'ok': False, 'error': str(exc)[:200]},
+                                                  ensure_ascii=False))
+        return self._send(404, json.dumps({'ok': False, 'error': 'not found'}, ensure_ascii=False))
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if parsed.path == '/api/kb':
+            try:
+                body = self._read_json()
+                eid = str(body.get('id') or '').strip()
+                ok = knowledge.delete(eid) if eid else False
+                return self._send(200 if ok else 404, json.dumps(
+                    {'ok': ok, 'error': '' if ok else '条目不存在'}, ensure_ascii=False))
+            except Exception as exc:  # noqa: BLE001
+                return self._send(500, json.dumps({'ok': False, 'error': str(exc)[:200]},
+                                                  ensure_ascii=False))
+        return self._send(404, json.dumps({'ok': False, 'error': 'not found'}, ensure_ascii=False))
+
     def do_GET(self):
         parsed = urlparse(self.path)
+
+        # ---- 知识库：列表 ----
+        if parsed.path == '/api/kb':
+            try:
+                lines = knowledge.load_lines()
+                return self._send(200, json.dumps(
+                    {'ok': True, 'lines': lines, 'total': len(lines)}, ensure_ascii=False))
+            except Exception as exc:  # noqa: BLE001
+                return self._send(500, json.dumps({'ok': False, 'error': str(exc)[:200]},
+                                                  ensure_ascii=False))
+        if parsed.path in ('/', '/index.html') and WEB_DIST.exists():
+            return self._send_file(WEB_DIST / 'index.html', 'text/html; charset=utf-8')
+        if parsed.path.startswith('/assets/') and WEB_DIST.exists():
+            rel = parsed.path.lstrip('/')
+            target = (WEB_DIST / rel).resolve()
+            # 防止路径穿越
+            if WEB_DIST.resolve() in target.parents and target.is_file():
+                return self._send_file(target)
         if parsed.path in ('/', '/index.html'):
             return self._send(200, PAGE, 'text/html; charset=utf-8')
         if parsed.path == '/api/ai/test':

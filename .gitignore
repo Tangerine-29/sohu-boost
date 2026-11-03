@@ -30,3 +30,9 @@ dumps.json
 *.pcap
 *.har
 /tmp/*
+
+# 前端
+node_modules/
+web_dist/
+web/node_modules/
+knowledge.txt
