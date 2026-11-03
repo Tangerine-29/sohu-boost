@@ -8,7 +8,7 @@
     GET  /330000/feed/repost/comment/list/v20  转发列表
 
 用法：
-    python3 feed_reader.py --feed <FEED_ID>
+    python3 feed_reader.py --feed 1492661190353174144
     python3 feed_reader.py --feed <id> --comments 50 --json
 """
 
@@ -136,23 +136,65 @@ class FeedReader:
             'circleId': circle.get('circleId'),
             'circleName': circle.get('circleName'),
             'images': self._extract_images(sf),
+            'pics': self.extract_pics(sf),
             'raw_keys': list(sf.keys())[:30],
         }
 
     @staticmethod
     def _extract_images(sf):
+        """提取帖子图片 URL（原图优先）。
+
+        实测帖子图片在 picFeed.pics[]，每项三个尺寸：
+            tp=小图  bp=大图  rp=原图
+        """
         out = []
+        # 1) 主路径：picFeed.pics[]
+        pf = sf.get('picFeed') if isinstance(sf, dict) else None
+        if isinstance(pf, dict):
+            for item in (pf.get('pics') or []):
+                if not isinstance(item, dict):
+                    continue
+                url = item.get('rp') or item.get('bp') or item.get('tp')
+                if url:
+                    out.append(url)
+        # 2) 兼容其它字段
         for key in ('images', 'picList', 'mediaList', 'imageList'):
             val = sf.get(key)
             if isinstance(val, list):
                 for item in val:
                     if isinstance(item, dict):
-                        url = item.get('url') or item.get('picUrl') or item.get('originUrl')
+                        url = (item.get('rp') or item.get('url')
+                               or item.get('picUrl') or item.get('originUrl'))
                         if url:
                             out.append(url)
                     elif isinstance(item, str):
                         out.append(item)
-        return out[:9]
+        # 去重保序
+        seen, uniq = set(), []
+        for u in out:
+            if u not in seen:
+                seen.add(u)
+                uniq.append(u)
+        return uniq[:9]
+
+    @staticmethod
+    def extract_pics(sf):
+        """返回图片的完整尺寸信息（含小/大/原图与宽高）。"""
+        pf = sf.get('picFeed') if isinstance(sf, dict) else None
+        if not isinstance(pf, dict):
+            return []
+        out = []
+        for x in (pf.get('pics') or []):
+            if not isinstance(x, dict):
+                continue
+            out.append({
+                'small': x.get('tp'),
+                'big': x.get('bp'),
+                'raw': x.get('rp'),
+                'w': x.get('bw') or x.get('tw'),
+                'h': x.get('bh') or x.get('th'),
+            })
+        return out
 
 
     # ---------- 圈子 ----------

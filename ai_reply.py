@@ -31,14 +31,14 @@ DEFAULT_SYSTEM = (
 )
 
 
-def chat(base_url, api_key, model, messages, timeout=25, temperature=0.85):
+def chat(base_url, api_key, model, messages, timeout=25, temperature=0.85, max_tokens=None):
     """调用 chat/completions，返回回复文本；失败抛异常。"""
     url = base_url.rstrip('/') + '/chat/completions'
     payload = json.dumps({
         'model': model,
         'messages': messages,
         'temperature': temperature,
-        'max_tokens': 400,
+        'max_tokens': int(max_tokens or 400),
     }).encode('utf-8')
     headers = {
         'Content-Type': 'application/json',
@@ -101,8 +101,10 @@ def looks_like_reasoning(text):
     return hits >= 2 or t.startswith(('用户要', '要针对', '我需要', '让我'))
 
 
-def build_messages(comment_text, feed_content='', author='', extra=''):
+def build_messages(comment_text, feed_content='', author='', extra='', images=None):
     """上下文格式：作者名和内容拼成一行，像群聊里的「昵称:内容」。
+
+    images 非空时把图片作为多模态内容一起发给模型（最多 3 张）。
 
         帖子：大家好
         下面有人回复：春柳:不好
@@ -115,10 +117,23 @@ def build_messages(comment_text, feed_content='', author='', extra=''):
         lines.append(f'下面有人回复：{name}:{comment_text[:200]}')
     if extra:
         lines.append(f'补充说明：{extra}')
-    user = '\n'.join(lines) + '\n\n按你的人设，针对那条回复回一句：'
+    tail = '\n\n按你的人设，针对那条回复回一句：'
+    user_text = '\n'.join(lines) + tail
+
+    imgs = [u for u in (images or []) if isinstance(u, str) and u.startswith('http')][:3]
+    if not imgs:
+        return [
+            {'role': 'system', 'content': DEFAULT_SYSTEM},
+            {'role': 'user', 'content': user_text},
+        ]
+
+    # 多模态：文本 + 图片
+    content = [{'type': 'text', 'text': user_text + '（帖子配了图，看着图说话）'}]
+    for u in imgs:
+        content.append({'type': 'image_url', 'image_url': {'url': u}})
     return [
         {'role': 'system', 'content': DEFAULT_SYSTEM},
-        {'role': 'user', 'content': user},
+        {'role': 'user', 'content': content},
     ]
 
 
@@ -139,22 +154,29 @@ def looks_like_reasoning(text):
 
 
 
-def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2):
-    """按配置生成一条回复。返回 (ok, text_or_error)。"""
+def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2, images=None):
+    """按配置生成一条回复。返回 (ok, text_or_error)。
+
+    images 非空时走多模态（帖子配图）。图片会让 reasoning 消耗更多 token，
+    所以有图时把 max_tokens 提到 800。
+    """
     base = (cfg.get('ai_base_url') or '').strip()
     key = (cfg.get('ai_api_key') or '').strip()
     model = (cfg.get('ai_model') or '').strip()
     if not base or not model:
         return False, '未配置 ai_base_url / ai_model'
     system = (cfg.get('ai_system_prompt') or '').strip() or DEFAULT_SYSTEM
-    msgs = build_messages(comment_text, feed_content, author, extra)
+    msgs = build_messages(comment_text, feed_content, author, extra, images=images)
+    has_img = isinstance(msgs[1].get('content'), list)
     msgs[0]['content'] = system
     limit = int(cfg.get('ai_max_len') or 20)
 
     last_err = '未知错误'
     for attempt in range(retries + 1):
         try:
-            text = chat(base, key, model, msgs, temperature=0.85 + 0.1 * attempt)
+            text = chat(base, key, model, msgs,
+                        temperature=0.85 + 0.1 * attempt,
+                        max_tokens=800 if has_img else None)
         except urllib.error.HTTPError as exc:
             body = ''
             try:

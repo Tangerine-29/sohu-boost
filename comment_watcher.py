@@ -10,7 +10,7 @@
 用法
     python3 comment_watcher.py --circle <CIRCLE_ID> --recent 30 --once
     python3 comment_watcher.py --circle <CIRCLE_ID> --recent 30 --interval 180
-    python3 comment_watcher.py --feed <FEED_ID> --interval 60
+    python3 comment_watcher.py --feed 1492779605269086336 --interval 60
     python3 comment_watcher.py --circle ... --dry-run        # 只检测不发送
 
 状态文件
@@ -414,7 +414,7 @@ class Watcher:
         except json.JSONDecodeError:
             return {'ok': False, 'http': status}
 
-    def _compose_reply(self, feed_id, comment, n, feed_content=None):
+    def _compose_reply(self, feed_id, comment, n, feed_content=None, feed_images=None):
         """决定回复内容：AI 优先，失败回落模板。
 
         feed_content 已知道时直接传进来，避免重复请求 feed 详情
@@ -429,6 +429,7 @@ class Watcher:
                     info = self.reader.feed(feed_id)
                     if info.get('ok'):
                         feed_content = str(info.get('content') or '')
+                        feed_images = info.get('images') or []
                 except Exception:  # noqa: BLE001
                     feed_content = ''
             feed_content = feed_content or ''
@@ -438,7 +439,8 @@ class Watcher:
                          '绝对不要提曝光、流量、数字这些词，不要让旁人看出有机制。')
             else:
                 extra = ''
-            ok, out = ai_reply.generate(cfg, ctext, feed_content, author, extra)
+            ok, out = ai_reply.generate(cfg, ctext, feed_content, author, extra,
+                                        images=feed_images or [])
             if ok:
                 return out, 'ai'
             print(f'[{now_str()}] AI 生成失败，回落模板: {out}', flush=True)
@@ -507,7 +509,8 @@ class Watcher:
                         {'commentId': '0', 'content': str(feed_info.get('content'))[:100],
                          'user': {'name': (feed_info.get('author') or {}).get('name') or '楼主'}},
                         0,
-                        feed_content=str(feed_info.get('content') or ''))
+                        feed_content=str(feed_info.get('content') or ''),
+                        feed_images=feed_info.get('images') or [])
                     time.sleep(3.0)      # 与上一步的 feed 请求拉开间隔（太密会 sig check fail）
                     res = self.post_feed_comment(feed_id, content)
                     if res.get('ok'):
