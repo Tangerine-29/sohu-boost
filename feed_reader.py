@@ -52,7 +52,8 @@ def ts_seconds(value):
 
 class FeedReader:
     def __init__(self, session_path=None):
-        self.s = Session(str(session_path or (HERE / 'session_sample.json')))
+        self.session_path = str(session_path or (HERE / 'session_sample.json'))
+        self.s = Session(self.session_path)
 
     # ---------- 底层 ----------
     def _base_params(self):
@@ -61,7 +62,7 @@ class FeedReader:
         p['flyer'] = str(int(time.time() * 1000))
         return p
 
-    def _request(self, path, params, method='GET'):
+    def _request(self, path, params, method='GET', host=None):
         # 全局限速：避免同一进程内请求过密被判 sig check fail
         global _LAST_REQ_AT
         if _MIN_GAP > 0:
@@ -82,10 +83,10 @@ class FeedReader:
         try:
             if method == 'POST':
                 body = '&'.join(f'{k}={v}' for k, v in p.items()).encode()
-                conn = http.client.HTTPSConnection(HOST, timeout=15)
+                conn = http.client.HTTPSConnection(host or HOST, timeout=15)
                 conn.request('POST', path, body=body, headers=headers)
             else:
-                conn = http.client.HTTPSConnection(HOST, timeout=15)
+                conn = http.client.HTTPSConnection(host or HOST, timeout=15)
                 conn.request('GET', path + '?' + urllib.parse.urlencode(p), headers=headers)
             resp = conn.getresponse()
             text = resp.read().decode('utf-8', 'replace')

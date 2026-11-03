@@ -474,6 +474,82 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
 
+        # ---- 账号信息更新（给 iOS 插件用）----
+        if parsed.path == '/api/session/update':
+            try:
+                # 简单鉴权：X-Auth-Token 必须匹配配置里的 session_push_key
+                cfg = watcher_config.load()
+                expect = str(cfg.get('session_push_key') or '').strip()
+                got = str(self.headers.get('X-Auth-Token') or '').strip()
+                if expect and got != expect:
+                    return self._send(403, json.dumps(
+                        {'ok': False, 'error': 'auth failed'}, ensure_ascii=False))
+
+                body = self._read_json()
+                target = str(body.get('name') or 'session_sample').strip()
+                if target not in ('session_sample', 'session_boost'):
+                    return self._send(400, json.dumps(
+                        {'ok': False, 'error': 'name 只能是 session_sample / session_boost'},
+                        ensure_ascii=False))
+
+                headers = body.get('headers') or {}
+                if not isinstance(headers, dict) or not headers.get('token'):
+                    return self._send(400, json.dumps(
+                        {'ok': False, 'error': 'headers.token 缺失'}, ensure_ascii=False))
+
+                # 必须有的字段
+                need = ['S-CID', 'S-PID', 'S-PPID', 'token']
+                miss = [k for k in need if not headers.get(k)]
+                if miss:
+                    return self._send(400, json.dumps(
+                        {'ok': False, 'error': '缺少 ' + ','.join(miss)}, ensure_ascii=False))
+
+                path = Path(__file__).resolve().parent / f'{target}.json'
+                bak = path.with_suffix('.json.bak')
+
+                # 备份：只在「旧文件是真实数据」且「备份文件还不存在」时写入，
+                # 避免多次测试把真数据的备份覆盖成测试数据
+                if path.exists() and not bak.exists():
+                    try:
+                        old = json.loads(path.read_text())
+                        old_tok = str((old.get('headers') or {}).get('token') or '')
+                        # 真实 token 一般 100+ 字符；测试 token 很短
+                        if len(old_tok) >= 60:
+                            bak.write_bytes(path.read_bytes())
+                            print(f'[{time.strftime("%H:%M:%S")}] 备份 {target} → .bak', flush=True)
+                    except (OSError, json.JSONDecodeError):
+                        pass
+
+                payload = {
+                    'event': 'push',
+                    'at': int(body.get('at') or time.time() * 1000),
+                    'url': str(body.get('url') or ''),
+                    'method': str(body.get('method') or 'POST'),
+                    'body': str(body.get('body') or ''),
+                    'headers': headers,
+                    'cookie': body.get('cookie'),
+                }
+                tmp = path.with_suffix('.json.tmp')
+                tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=1))
+                tmp.replace(path)
+                try:
+                    path.chmod(0o600)
+                except OSError:
+                    pass
+
+                print(f'[{time.strftime("%H:%M:%S")}] 收到 {target} 更新: '
+                      f'S-PID={headers.get("S-PID")} S-CID={headers.get("S-CID")}', flush=True)
+                return self._send(200, json.dumps({
+                    'ok': True,
+                    'updated': f'{target}.json',
+                    'pid': headers.get('S-PID'),
+                    'cid': headers.get('S-CID'),
+                    'token_len': len(str(headers.get('token') or '')),
+                }, ensure_ascii=False))
+            except Exception as exc:  # noqa: BLE001
+                return self._send(500, json.dumps(
+                    {'ok': False, 'error': str(exc)[:200]}, ensure_ascii=False))
+
         # ---- 知识库：新增 ----
         if parsed.path == '/api/kb':
             try:

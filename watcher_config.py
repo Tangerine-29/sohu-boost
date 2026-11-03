@@ -44,6 +44,7 @@ DEFAULTS = {
     'feed_mention_reply': False,  # 旧开关：只对提到关键词的帖子回复（reply_all_feeds 关闭时才生效）
     'feed_reply_hourly_cap': 10,  # 每小时最多发多少条顶层评论（0 = 不限）
     'feed_reply_only_after_start': True,  # 只评论「服务器启动之后发布」的帖子，不往回翻
+    'session_push_key': '',      # iOS 插件推送账号信息时的鉴权密钥（留空 = 不校验，公网务必设置）
     'dm_enabled': True,          # 私聊自动回复总开关
     'dm_pull_limit': 100,        # 每次拉取的消息条数
     'dm_daily_cap': 50,          # 每天最多自动回复多少条私聊（0 = 不限）

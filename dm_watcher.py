@@ -121,7 +121,26 @@ class DMWatcher:
             self.client._state['daily'] = keep
         self.client._save_state()
 
+    def maybe_reload_session(self):
+        """session 变了就重建 client。"""
+        try:
+            sp = Path(self.client.reader.session_path)
+            mt = sp.stat().st_mtime
+        except (OSError, AttributeError):
+            return
+        if getattr(self, '_sess_mt', None) is None:
+            self._sess_mt = mt
+            return
+        if mt != self._sess_mt:
+            self._sess_mt = mt
+            try:
+                self.client = DMClient()
+                print(f'[{now_str()}] session 已热重载', flush=True)
+            except Exception as exc:  # noqa: BLE001
+                print(f'[{now_str()}] session 重载失败: {exc}', flush=True)
+
     def one_round(self):
+        self.maybe_reload_session()
         self.reload_config()
         convs, info = self.client.pull(limit=int(self.cfg.get('dm_pull_limit') or 100))
         if not info.get('ok'):

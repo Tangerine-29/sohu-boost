@@ -233,6 +233,37 @@ class Watcher:
         grace = int(self.cfg.get('reply_grace_minutes') or 0) * 60
         return (start - grace) <= ts <= (start + days * 86400)
 
+    def maybe_reload_session(self):
+        """session 文件变了就重载。
+
+        deb 插件推送新 token 后，这里自动生效，不用手动重启进程。
+        """
+        try:
+            paths = [self.reader.session_path, self.session.session_path]
+        except AttributeError:
+            return
+        mtimes = []
+        for sp in paths:
+            try:
+                mtimes.append(Path(sp).stat().st_mtime)
+            except OSError:
+                mtimes.append(0)
+        key = tuple(mtimes)
+        if key == getattr(self, '_session_mtimes', None):
+            return
+        # 首次或确实变了
+        prev = getattr(self, '_session_mtimes', None)
+        self._session_mtimes = key
+        if prev is None:
+            return                     # 首次记录，不重载
+        try:
+            self.reader = FeedReader()
+            boost_path = self.boost_session_path
+            self.session = Session(boost_path)
+            print(f'[{now_str()}] session 已热重载（文件有更新）', flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f'[{now_str()}] session 重载失败: {exc.__class__.__name__}: {exc}', flush=True)
+
     def reload_config(self):
         """每轮重新读配置，网页改关键词后自动生效。"""
         global MARK_PATTERN

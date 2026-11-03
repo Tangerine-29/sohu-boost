@@ -58,6 +58,7 @@ class Session:
 
     def __init__(self, dump_path):
         d = json.load(open(dump_path))
+        self.session_path = str(__import__('pathlib').Path(dump_path).resolve())
         self.headers = {k: v for k, v in d['headers'].items()
                         if k.lower() not in ('connection', 'accept-encoding', 'content-length')
                         and v.isascii()}
