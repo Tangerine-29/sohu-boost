@@ -14,7 +14,7 @@ GET  dm-spc-ol.sns.sohu.com/dm-poll/api/v2/newmsgcount   未读数
 
 ```http
 POST /dm/api/v2/message
-  to_user_id=1455627722759020160
+  to_user_id=<USER_ID>
   message=你好
   type=0
 ```
@@ -24,7 +24,7 @@ POST /dm/api/v2/message
 ```json
 {"status": 100000, "data": {"msg_data": {
   "id": "p_2117496076964704349",
-  "conversation_id": "p14556277227590201601492943737658212864",
+  "conversation_id": "p<USER_ID><USER_ID>",
   "from_user_id": "...", "to_user_id": "...",
   "msg": "你好", "send_time": 1793685380581
 }}}
@@ -115,10 +115,10 @@ python3 dm_client.py --pull
 ```
 私聊监听启动 | 账号 xxx | 模式 自动回复 | 间隔 60s
 [14:06:42] 待处理私聊 3 条（本轮新拉 0）
-[14:06:46] [EXEC] 1455627722759020160: '在吗' → '在的，咋了哥们' (ai)
-[14:06:46] ✅ 已回复 1455627722759020160
-[14:06:52] [EXEC] 1455627722759020160: 'hi' → '哟，这么晚还不睡？' (ai)
-[14:06:52] ✅ 已回复 1455627722759020160
+[14:06:46] [EXEC] <USER_ID>: '在吗' → '在的，咋了哥们' (ai)
+[14:06:46] ✅ 已回复 <USER_ID>
+[14:06:52] [EXEC] <USER_ID>: 'hi' → '哟，这么晚还不睡？' (ai)
+[14:06:52] ✅ 已回复 <USER_ID>
 ```
 
 ## 延迟

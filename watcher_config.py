@@ -47,6 +47,7 @@ DEFAULTS = {
     'dm_enabled': True,          # 私聊自动回复总开关
     'dm_pull_limit': 100,        # 每次拉取的消息条数
     'dm_daily_cap': 50,          # 每天最多自动回复多少条私聊（0 = 不限）
+    'dm_max_len': 50,            # 私聊回复字数上限（比帖子宽松，避免截成半句）
     'dm_reply_template': '在的，稍等',   # AI 失败时的兜底文案
     'dm_skip_keywords': '',      # 命中这些词就不回（逗号分隔）
     'kb_enabled': True,          # 是否把本地知识库注入 AI  prompt

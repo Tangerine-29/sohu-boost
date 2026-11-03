@@ -86,6 +86,23 @@ def chat(base_url, api_key, model, messages, timeout=25, temperature=0.85, max_t
     return str(msg.get('content') or '').strip()
 
 
+def smart_truncate(text, limit):
+    """按字数截断，但优先在标点处断，避免留半句。
+
+    找不到合适标点就硬截，但会去掉末尾的残缺词。
+    """
+    text = (text or '').strip()
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    # 从后往前找标点（越靠后越好，但不短于 limit 的 60%）
+    floor = max(int(limit * 0.6), 1)
+    for i in range(len(head) - 1, floor - 1, -1):
+        if head[i] in '。！？!?，,；;…':
+            return head[:i + 1].rstrip('，,；;')
+    return head
+
+
 META_HINTS = (
     '用户要', '用户说', '要针对', '这条回复', '结合帖子', '人设是',
     '字内', '回复先生成', '我需要', '我们应该', '让我', '首先',
@@ -138,6 +155,23 @@ def build_messages(comment_text, feed_content='', author='', extra='', images=No
     ]
 
 
+def smart_truncate(text, limit):
+    """按字数截断，但优先在标点处断，避免留半句。
+
+    找不到合适标点就硬截，但会去掉末尾的残缺词。
+    """
+    text = (text or '').strip()
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    # 从后往前找标点（越靠后越好，但不短于 limit 的 60%）
+    floor = max(int(limit * 0.6), 1)
+    for i in range(len(head) - 1, floor - 1, -1):
+        if head[i] in '。！？!?，,；;…':
+            return head[:i + 1].rstrip('，,；;')
+    return head
+
+
 META_HINTS = (
     '用户要', '用户说', '要针对', '这条回复', '结合帖子', '人设是',
     '字内', '回复先生成', '我需要', '我们应该', '让我', '首先',
@@ -163,7 +197,8 @@ def build_knowledge(cfg=None):
         return ''
 
 
-def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2, images=None):
+def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2,
+             images=None, max_len=None):
     """按配置生成一条回复。返回 (ok, text_or_error)。
 
     images 非空时走多模态（帖子配图）。图片会让 reasoning 消耗更多 token，
@@ -182,7 +217,7 @@ def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2,
     msgs = build_messages(comment_text, feed_content, author, extra, images=images)
     has_img = isinstance(msgs[1].get('content'), list)
     msgs[0]['content'] = system
-    limit = int(cfg.get('ai_max_len') or 20)
+    limit = int(max_len or cfg.get('ai_max_len') or 20)
 
     last_err = '未知错误'
     for attempt in range(retries + 1):
@@ -212,7 +247,7 @@ def generate(cfg, comment_text, feed_content='', author='', extra='', retries=2,
         if len(text) < 4:
             last_err = f'回复过短（{len(text)}字）: {text}'
             continue        # 重试
-        return True, text[:limit]
+        return True, smart_truncate(text, limit)
     return False, last_err
 
 

@@ -50,11 +50,15 @@ class DMWatcher:
         cfg = self.cfg
         # 私聊没有帖子上下文，把对方的话当"评论"
         text = str(msg.get('text') or '')[:300]
-        extra = '（这是私聊，不是帖子评论，简短自然点）'
+        extra = ('这是私聊，不是帖子评论。像朋友聊天一样自然口语化，'
+                 '不要说"有什么需要帮忙的"这种客服腔，一句话说完即可。')
 
         if cfg.get('ai_enabled'):
             try:
-                ok, out = ai_reply.generate(cfg, text, '', '', extra)
+                ok, out = ai_reply.generate(
+                    cfg, text, '', '', extra,
+                    max_len=int(cfg.get('dm_max_len') or 50),
+                )
                 if ok:
                     return out, 'ai'
                 self.log(f'AI 生成失败，回落模板: {out}')
