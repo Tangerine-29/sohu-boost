@@ -504,9 +504,11 @@ class Watcher:
                     _should, _why = self.should_reply_feed(feed_info.get('content'))
             if _should:
                 if not self.feed_replied(feed_id):
+                    # 注意：comment 的 content 必须留空，否则会和 feed_content 重复，
+                    # 模型会以为对方在复读（曾导致回复「你搁这当复读机呢」）。
                     content, src = self._compose_reply(
                         feed_id,
-                        {'commentId': '0', 'content': str(feed_info.get('content'))[:100],
+                        {'commentId': '0', 'content': '',
                          'user': {'name': (feed_info.get('author') or {}).get('name') or '楼主'}},
                         0,
                         feed_content=str(feed_info.get('content') or ''),
